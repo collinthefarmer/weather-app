@@ -16,8 +16,8 @@ type Geolocation struct {
 	RegionName  string  `json:"regionName"`
 	City        string  `json:"city"`
 	Zip         string  `json:"zip"`
-	Lat         float32 `json:"lat"`
-	Lon         float32 `json:"lon"`
+	Lat         float64 `json:"lat"`
+	Lon         float64 `json:"lon"`
 	Timezone    string  `json:"timezone"`
 }
 
