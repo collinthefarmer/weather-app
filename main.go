@@ -1,35 +1,53 @@
 package main
 
 import (
-	"strings"
-	"weather/internal/ipapi"
+	"weather/internal/display"
+	"weather/internal/location"
+	"weather/internal/weather"
 
-	"fmt"
 	"net/http"
+	"strings"
 )
 
-type ApplicationHandler struct{}
+func HandleIndex() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestAddress := r.RemoteAddr
+		requestIP := strings.Split(requestAddress, ":")[0]
 
-func (app ApplicationHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	requestAddress := req.RemoteAddr
-	requestIP := strings.Split(requestAddress, ":")[0]
+		// figure out where the request is coming from
+		loc, err := location.ForIP(requestIP)
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("uh oh, I couldn't find your location :("))
+		}
 
-	// figure out where the request is coming from
-	location, err := ipapi.LocateIP(requestIP)
-	if err != nil {
-		rw.WriteHeader(http.StatusServiceUnavailable)
-		rw.Write([]byte("uh oh, I couldn't find your location :("))
-	}
+		// find the most recent weather for the location of the request
+		wth, err := weather.ForLatLon(loc.Lat, loc.Lon)
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("uh oh, I couldn't find you weather :("))
+		}
 
-	// find the most recent weather for the location of the request
+		data := display.Data{Location: loc, Weather: wth}
 
-	rw.Write([]byte(fmt.Sprintf("hello in %v!", location.City)))
-	// return a template corresponding to the weather of that location
+		// return a template corresponding to the weather of that location
+		tmpl, err := display.SelectTemplate(loc, wth)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("uh oh, I beefed it"))
+		}
+
+		if err := display.RenderTemplate(w, tmpl, &data); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("uh oh, I beefed it"))
+		}
+	})
 }
 
 func main() {
 	server := http.NewServeMux()
 
-	server.Handle("/", ApplicationHandler{})
+	server.Handle("/", HandleIndex())
+
 	http.ListenAndServe("localhost:8080", server)
 }
