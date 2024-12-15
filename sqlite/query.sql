@@ -36,19 +36,18 @@ RETURNING
 
 -- name: AddObservationDrawing :exec
 INSERT INTO
-    observations_drawings (data, size_bytes, time_submitted)
-SET
-    drawing_data_uri = ?,
-    drawing_size_bytes = ?,
-    time_drawing_submit = ?
+    observation_drawings (observation_id, data, size_bytes, time_submitted)
+VALUES
+    (?, ?, ?, ?)
 RETURNING
     *;
 
 -- todo
--- name: SelectRecentObservation :one
+-- name: PriorObservation :one
 SELECT
     *
 FROM
-    observations
+    observations o
+    INNER JOIN observation_drawings od ON o.id = od.observation_id
 LIMIT
     1;

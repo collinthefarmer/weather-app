@@ -5,7 +5,6 @@
 package data
 
 import (
-	"database/sql"
 	"time"
 )
 
@@ -19,19 +18,24 @@ type Geolocation struct {
 }
 
 type Observation struct {
-	ID                int64
-	Latitude          float64
-	Longitude         float64
-	Timezone          string
-	TempC             float64
-	TempF             float64
-	RelativeHumidity  float64
-	Rain              float64
-	Snowfall          float64
-	WeatherCode       string
-	DrawingDataUri    sql.NullString
-	DrawingSizeBytes  sql.NullInt64
-	TimeUtc           time.Time
-	TimeLocal         time.Time
-	TimeDrawingSubmit sql.NullTime
+	ID               int64
+	Latitude         float64
+	Longitude        float64
+	Timezone         string
+	TempC            float64
+	TempF            float64
+	RelativeHumidity float64
+	Rain             float64
+	Snowfall         float64
+	WeatherCode      string
+	TimeUtc          time.Time
+	TimeLocal        time.Time
+}
+
+type ObservationDrawing struct {
+	ObservationID int64
+	Data          string
+	SizeBytes     int64
+	TimeSubmitted time.Time
+	Foregin       interface{}
 }

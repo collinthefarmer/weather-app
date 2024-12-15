@@ -7,7 +7,6 @@ package data
 
 import (
 	"context"
-	"database/sql"
 	"time"
 )
 
@@ -68,7 +67,7 @@ INSERT INTO
 VALUES
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING
-    id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, drawing_data_uri, drawing_size_bytes, time_utc, time_local, time_drawing_submit
+    id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, time_utc, time_local
 `
 
 type AddObservationParams struct {
@@ -111,40 +110,34 @@ func (q *Queries) AddObservation(ctx context.Context, arg AddObservationParams) 
 		&i.Rain,
 		&i.Snowfall,
 		&i.WeatherCode,
-		&i.DrawingDataUri,
-		&i.DrawingSizeBytes,
 		&i.TimeUtc,
 		&i.TimeLocal,
-		&i.TimeDrawingSubmit,
 	)
 	return i, err
 }
 
 const addObservationDrawing = `-- name: AddObservationDrawing :exec
-UPDATE
-    observations
-SET
-    drawing_data_uri = ?,
-    drawing_size_bytes = ?,
-    time_drawing_submit = ?
-WHERE
-    id = ?
-    AND drawing_data_uri IS NULL
+INSERT INTO
+    observation_drawings (observation_id, data, size_bytes, time_submitted)
+VALUES
+    (?, ?, ?, ?)
+RETURNING
+    observation_id, data, size_bytes, time_submitted, foregin
 `
 
 type AddObservationDrawingParams struct {
-	DrawingDataUri    sql.NullString
-	DrawingSizeBytes  sql.NullInt64
-	TimeDrawingSubmit sql.NullTime
-	ID                int64
+	ObservationID int64
+	Data          string
+	SizeBytes     int64
+	TimeSubmitted time.Time
 }
 
 func (q *Queries) AddObservationDrawing(ctx context.Context, arg AddObservationDrawingParams) error {
 	_, err := q.db.ExecContext(ctx, addObservationDrawing,
-		arg.DrawingDataUri,
-		arg.DrawingSizeBytes,
-		arg.TimeDrawingSubmit,
-		arg.ID,
+		arg.ObservationID,
+		arg.Data,
+		arg.SizeBytes,
+		arg.TimeSubmitted,
 	)
 	return err
 }
@@ -174,7 +167,7 @@ func (q *Queries) GetGeolocation(ctx context.Context, ip string) (Geolocation, e
 
 const selectRecentObservation = `-- name: SelectRecentObservation :one
 SELECT
-    id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, drawing_data_uri, drawing_size_bytes, time_utc, time_local, time_drawing_submit
+    id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, time_utc, time_local
 FROM
     observations
 LIMIT
@@ -196,11 +189,8 @@ func (q *Queries) SelectRecentObservation(ctx context.Context) (Observation, err
 		&i.Rain,
 		&i.Snowfall,
 		&i.WeatherCode,
-		&i.DrawingDataUri,
-		&i.DrawingSizeBytes,
 		&i.TimeUtc,
 		&i.TimeLocal,
-		&i.TimeDrawingSubmit,
 	)
 	return i, err
 }

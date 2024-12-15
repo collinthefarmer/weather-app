@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"weather/internal/data"
 	"weather/internal/drawing"
 	"weather/internal/location"
@@ -16,12 +17,12 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func resolveGeolocation(ctx context.Context, ip string, db *data.Queries) (data.Geolocation, error) {
-
 	entry, err := db.GetGeolocation(ctx, ip)
 	switch err {
 	case nil:
@@ -101,26 +102,21 @@ func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 		if err != nil {
 			log.Printf("error resolving geolocation: %v", err)
 
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("uh oh, I couldn't find your location :("))
+			http.Error(w, "uh oh, I couldn't find your location :(", http.StatusInternalServerError)
 			return
 		}
 
 		obs, err := resolveObservation(ctx, loc, db)
 		if err != nil {
 			log.Printf("error resolving observation: %v", err)
-
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("uh oh, I couldn't find your weather :("))
+			http.Error(w, "uh oh, I couldn't find your weather :(", http.StatusInternalServerError)
 			return
 		}
 
 		prev, err := observation.ResolvePriorObservation(*obs, db)
 		if err != nil {
 			log.Printf("error resolving previous observation: %v", err)
-
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("uh oh, I beefed it!"))
+			http.Error(w, "uh oh, I beefed it :(", http.StatusInternalServerError)
 			return
 		}
 
@@ -134,22 +130,37 @@ func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 	})
 }
 
-func readObservationDrawing(r *http.Request) (*data.AddObservationDrawingParams, error) {
-	id := r.PathValue("id")
-	if id == "" {
+func readObservationDrawing(r *http.Request) (*data.ObservationDrawing, error) {
+	drawingData := r.PostFormValue("drawing")
+	idStr := r.PathValue("id")
+	if idStr == "" {
 		return nil, validation.ErrValidation
 	}
 
-	drawingData := r.PostFormValue("drawing")
-	err := drawing.Validate(drawingData)
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		return nil, validation.ErrValidation
 	}
 
-	return &data.AddObservationDrawingParams{
-		DrawingDataUri:   sql.NullString{String: drawingData, Valid: true},
-		DrawingSizeBytes: sql.NullInt64{Int64: int64(len([]byte(drawingData)))},
+	if err := drawing.Validate(drawingData); err != nil {
+		return nil, validation.ErrValidation
+	}
+
+	return &data.ObservationDrawing{
+		ObservationID: int64(id),
+		Data:          drawingData,
+		SizeBytes:     int64(len([]byte(drawingData))),
+		TimeSubmitted: time.Now(),
 	}, nil
+}
+
+func createObservationDrawing(ctx context.Context, drawing *data.ObservationDrawing, db *data.Queries) error {
+	return db.AddObservationDrawing(ctx, data.AddObservationDrawingParams{
+		ObservationID: drawing.ObservationID,
+		Data:          drawing.Data,
+		SizeBytes:     drawing.SizeBytes,
+		TimeSubmitted: drawing.TimeSubmitted,
+	})
 }
 
 func handleObservationPatch(templates *template.Template, db *data.Queries) http.Handler {
@@ -159,30 +170,25 @@ func handleObservationPatch(templates *template.Template, db *data.Queries) http
 		panic("no observation template")
 	}
 
+	type observationTemplateData struct {
+		Observation data.Observation
+		Drawing     data.ObservationDrawing
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		obs, err := readObservationDrawing(r)
-		switch err {
-		case nil:
-			err := db.AddObservationDrawing(ctx, *obs)
-			if err == sql.ErrNoRows {
-				http.Error(w, "", http.StatusNotFound)
-				return
-			} else if err != nil {
-				http.Error(w, "", http.StatusInternalServerError)
-				return
-			}
-
-			renderTemplate(w, observationTemplate, *obs)
-			return
-		case validation.ErrValidation:
+		drawing, err := readObservationDrawing(r)
+		if err != nil {
 			http.Error(w, "", http.StatusBadRequest)
 			return
-		default:
-			http.Error(w, "", http.StatusInternalServerError)
-			return
 		}
+
+		if err := createObservationDrawing(ctx, drawing, db); err != nil {
+			http.Error(w, "", http.StatusInternalServerError)
+		}
+
+		renderTemplate(w, observationTemplate, *drawing)
 	})
 }
 
