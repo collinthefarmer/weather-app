@@ -104,6 +104,44 @@ func (q *Queries) AddObservation(ctx context.Context, arg AddObservationParams) 
 	return i, err
 }
 
+const addObservationDrawing = `-- name: AddObservationDrawing :exec
+UPDATE
+    observations
+SET
+    drawing_data_uri = ?,
+    drawing_size_bytes = ?
+WHERE
+    id = ?
+    AND drawing_data_uri IS NULL
+`
+
+type AddObservationDrawingParams struct {
+	DrawingDataUri   sql.NullString
+	DrawingSizeBytes sql.NullInt64
+	ID               int64
+}
+
+func (q *Queries) AddObservationDrawing(ctx context.Context, arg AddObservationDrawingParams) error {
+	_, err := q.db.ExecContext(ctx, addObservationDrawing, arg.DrawingDataUri, arg.DrawingSizeBytes, arg.ID)
+	return err
+}
+
+const getGeolocation = `-- name: GetGeolocation :one
+SELECT
+    ip, latitude, longitude
+FROM
+    geolocations
+WHERE
+    ip = ?
+`
+
+func (q *Queries) GetGeolocation(ctx context.Context, ip string) (Geolocation, error) {
+	row := q.db.QueryRowContext(ctx, getGeolocation, ip)
+	var i Geolocation
+	err := row.Scan(&i.Ip, &i.Latitude, &i.Longitude)
+	return i, err
+}
+
 const selectRecentObservation = `-- name: SelectRecentObservation :one
 SELECT
     id, time_utc, time_local, timezone, latitude, longitude, temperature_2m, relative_humidity_2m, rain, showers, snowfall, drawing_data_uri, drawing_size_bytes

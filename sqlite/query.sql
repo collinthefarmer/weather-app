@@ -6,6 +6,14 @@ VALUES
 RETURNING
     *;
 
+-- name: GetGeolocation :one
+SELECT
+    *
+FROM
+    geolocations
+WHERE
+    ip = ?;
+
 -- name: AddObservation :one
 INSERT INTO
     observations (
@@ -26,6 +34,16 @@ VALUES
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING
     *;
+
+-- name: AddObservationDrawing :exec
+UPDATE
+    observations
+SET
+    drawing_data_uri = ?,
+    drawing_size_bytes = ?
+WHERE
+    id = ?
+    AND drawing_data_uri IS NULL;
 
 -- todo
 -- name: SelectRecentObservation :one
