@@ -34,6 +34,14 @@ VALUES
 RETURNING
     *;
 
+-- name: GetObservation :one
+SELECT
+    *
+FROM
+    observations
+WHERE
+    id = ?;
+
 -- name: AddObservationDrawing :exec
 INSERT INTO
     observation_drawings (observation_id, data, size_bytes, time_submitted)
@@ -42,7 +50,7 @@ VALUES
 RETURNING
     *;
 
--- todo
+-- todo - returns best
 -- name: PriorObservation :one
 SELECT
     *

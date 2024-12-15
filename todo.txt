@@ -1,0 +1,6 @@
+- repository interface for pulling from first from cache, then db, then api
+	- location by ip
+		- lasts for a while
+	- observation by loc/lat
+		- only last 15 minutes
+	- observation by id

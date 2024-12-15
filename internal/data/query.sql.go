@@ -165,18 +165,17 @@ func (q *Queries) GetGeolocation(ctx context.Context, ip string) (Geolocation, e
 	return i, err
 }
 
-const selectRecentObservation = `-- name: SelectRecentObservation :one
+const getObservation = `-- name: GetObservation :one
 SELECT
     id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, time_utc, time_local
 FROM
     observations
-LIMIT
-    1
+WHERE
+    id = ?
 `
 
-// todo
-func (q *Queries) SelectRecentObservation(ctx context.Context) (Observation, error) {
-	row := q.db.QueryRowContext(ctx, selectRecentObservation)
+func (q *Queries) GetObservation(ctx context.Context, id int64) (Observation, error) {
+	row := q.db.QueryRowContext(ctx, getObservation, id)
 	var i Observation
 	err := row.Scan(
 		&i.ID,
@@ -191,6 +190,62 @@ func (q *Queries) SelectRecentObservation(ctx context.Context) (Observation, err
 		&i.WeatherCode,
 		&i.TimeUtc,
 		&i.TimeLocal,
+	)
+	return i, err
+}
+
+const priorObservation = `-- name: PriorObservation :one
+SELECT
+    id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, time_utc, time_local, observation_id, data, size_bytes, time_submitted, foregin
+FROM
+    observations o
+    INNER JOIN observation_drawings od ON o.id = od.observation_id
+LIMIT
+    1
+`
+
+type PriorObservationRow struct {
+	ID               int64
+	Latitude         float64
+	Longitude        float64
+	Timezone         string
+	TempC            float64
+	TempF            float64
+	RelativeHumidity float64
+	Rain             float64
+	Snowfall         float64
+	WeatherCode      string
+	TimeUtc          time.Time
+	TimeLocal        time.Time
+	ObservationID    int64
+	Data             string
+	SizeBytes        int64
+	TimeSubmitted    time.Time
+	Foregin          interface{}
+}
+
+// todo - returns best
+func (q *Queries) PriorObservation(ctx context.Context) (PriorObservationRow, error) {
+	row := q.db.QueryRowContext(ctx, priorObservation)
+	var i PriorObservationRow
+	err := row.Scan(
+		&i.ID,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Timezone,
+		&i.TempC,
+		&i.TempF,
+		&i.RelativeHumidity,
+		&i.Rain,
+		&i.Snowfall,
+		&i.WeatherCode,
+		&i.TimeUtc,
+		&i.TimeLocal,
+		&i.ObservationID,
+		&i.Data,
+		&i.SizeBytes,
+		&i.TimeSubmitted,
+		&i.Foregin,
 	)
 	return i, err
 }

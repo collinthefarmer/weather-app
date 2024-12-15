@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strconv"
 	"weather/internal/data"
 	"weather/internal/drawing"
 	"weather/internal/location"
@@ -16,6 +15,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,19 +51,24 @@ func resolveGeolocation(ctx context.Context, ip string, db *data.Queries) (data.
 }
 
 func resolveObservation(ctx context.Context, loc data.Geolocation, db *data.Queries) (*data.Observation, error) {
-	// todo: make this work like resolveGeolocation
-	// then refactor, probably
 	wth, err := weather.ForLatLon(loc.Latitude, loc.Longitude)
 	if err != nil {
 		return nil, err
 	}
 
 	obs, err := db.AddObservation(ctx, data.AddObservationParams{
-		Latitude:  loc.Latitude,
-		Longitude: loc.Longitude,
-		Timezone:  loc.Timezone,
-		TempC:     wth.Current.Temperature2m,
+		Latitude:         loc.Latitude,
+		Longitude:        loc.Longitude,
+		Timezone:         loc.Timezone,
+		TempC:            wth.Current.Temperature2m,
+		TempF:            wth.Current.Temperature2m,
+		Rain:             wth.Current.Rain,
+		Snowfall:         wth.Current.Snowfall,
+		WeatherCode:      wth.Current.WeatherCode,
+		RelativeHumidity: float64(wth.Current.RelativeHumidity2m),
+		TimeUtc:          time.Now().UTC(),
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -71,18 +76,42 @@ func resolveObservation(ctx context.Context, loc data.Geolocation, db *data.Quer
 	return &obs, nil
 }
 
-func renderTemplate[T any](w http.ResponseWriter, tmpl *template.Template, data T) error {
-	err := tmpl.Execute(w, data)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func resolveObservationByID(ctx context.Context, id int64) (*data.Observation, error) {
+	// TODO
+	return nil, nil
 }
 
-type indexTemplateData struct {
-	PrevObservation data.Observation
-	NextObservation data.Observation
+func readObservationDrawing(r *http.Request) (*data.ObservationDrawing, error) {
+	drawingData := r.PostFormValue("drawing")
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		return nil, validation.ErrValidation
+	}
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return nil, validation.ErrValidation
+	}
+
+	if err := drawing.Validate(drawingData); err != nil {
+		return nil, validation.ErrValidation
+	}
+
+	return &data.ObservationDrawing{
+		ObservationID: int64(id),
+		Data:          drawingData,
+		SizeBytes:     int64(len([]byte(drawingData))),
+		TimeSubmitted: time.Now().UTC(),
+	}, nil
+}
+
+func createObservationDrawing(ctx context.Context, drawing *data.ObservationDrawing, db *data.Queries) error {
+	return db.AddObservationDrawing(ctx, data.AddObservationDrawingParams{
+		ObservationID: drawing.ObservationID,
+		Data:          drawing.Data,
+		SizeBytes:     drawing.SizeBytes,
+		TimeSubmitted: drawing.TimeSubmitted,
+	})
 }
 
 func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
@@ -90,6 +119,11 @@ func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 	indexTemplate := tmpl.Lookup("index")
 	if indexTemplate == nil {
 		panic("no index template")
+	}
+
+	type indexTemplateData struct {
+		PrevObservation data.Observation
+		NextObservation data.Observation
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -130,40 +164,7 @@ func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 	})
 }
 
-func readObservationDrawing(r *http.Request) (*data.ObservationDrawing, error) {
-	drawingData := r.PostFormValue("drawing")
-	idStr := r.PathValue("id")
-	if idStr == "" {
-		return nil, validation.ErrValidation
-	}
-
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return nil, validation.ErrValidation
-	}
-
-	if err := drawing.Validate(drawingData); err != nil {
-		return nil, validation.ErrValidation
-	}
-
-	return &data.ObservationDrawing{
-		ObservationID: int64(id),
-		Data:          drawingData,
-		SizeBytes:     int64(len([]byte(drawingData))),
-		TimeSubmitted: time.Now(),
-	}, nil
-}
-
-func createObservationDrawing(ctx context.Context, drawing *data.ObservationDrawing, db *data.Queries) error {
-	return db.AddObservationDrawing(ctx, data.AddObservationDrawingParams{
-		ObservationID: drawing.ObservationID,
-		Data:          drawing.Data,
-		SizeBytes:     drawing.SizeBytes,
-		TimeSubmitted: drawing.TimeSubmitted,
-	})
-}
-
-func handleObservationPatch(templates *template.Template, db *data.Queries) http.Handler {
+func handleObservationDrawingPost(templates *template.Template, db *data.Queries) http.Handler {
 	const observationTemplateName = "observation"
 	observationTemplate := templates.Lookup(observationTemplateName)
 	if observationTemplate == nil {
@@ -184,12 +185,31 @@ func handleObservationPatch(templates *template.Template, db *data.Queries) http
 			return
 		}
 
+		observation, err := db.GetObservation(ctx, drawing.ObservationID)
+		switch err {
+		case nil:
+			break
+		case sql.ErrNoRows: // TODO: figure out what kind of error is returned on foreign key constraint failed
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		default:
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
 		if err := createObservationDrawing(ctx, drawing, db); err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
 		}
 
-		renderTemplate(w, observationTemplate, *drawing)
+		renderTemplate(w, observationTemplate, observationTemplateData{
+			Observation: observation,
+			Drawing:     *drawing,
+		})
 	})
+}
+
+func renderTemplate[T any](w http.ResponseWriter, tmpl *template.Template, data T) error {
+	return tmpl.Execute(w, data)
 }
 
 func createDatabase(path string, ddl string) (*data.Queries, error) {
@@ -229,8 +249,15 @@ func main() {
 
 	server := http.NewServeMux()
 
-	server.Handle("GET /", handleIndexGet(templates, db))
-	server.Handle("PATCH /observations/{id}", handleObservationPatch(templates, db))
+	server.Handle(
+		"GET /",
+		handleIndexGet(templates, db),
+	)
+
+	server.Handle(
+		"POST /observations/{id}/drawings",
+		handleObservationDrawingPost(templates, db),
+	)
 
 	http.ListenAndServe("localhost:8080", server)
 }

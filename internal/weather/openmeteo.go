@@ -13,8 +13,8 @@ type CurrentUnits struct {
 	Temperature2m      string `json:"temperature_2m"`
 	RelativeHumidity2m string `json:"relative_humidity_2m"`
 	Rain               string `json:"rain"`
-	Showers            string `json:"showers"`
 	Snowfall           string `json:"snowfall"`
+	WeatherCode        string `json:"weather_code"`
 }
 
 type Current struct {
@@ -23,8 +23,8 @@ type Current struct {
 	Temperature2m      float64 `json:"temperature_2m"`
 	RelativeHumidity2m int     `json:"relative_humidity_2m"`
 	Rain               float64 `json:"rain"`
-	Showers            float64 `json:"showers"`
 	Snowfall           float64 `json:"snowfall"`
+	WeatherCode        string  `json:"weather_code"`
 }
 
 type OpenMeteoWeather struct {
@@ -45,7 +45,7 @@ func (w OpenMeteoWeather) Validate() (validation.ValidationProblems, error) {
 }
 
 const basePath = "https://api.open-meteo.com/v1/forecast"
-const fields = "temperature_2m,relative_humidity_2m,rain,showers,snowfall"
+const fields = "temperature_2m,relative_humidity_2m,rain,snowfall,weather_code"
 
 func ForLatLon(lat float64, lon float64) (OpenMeteoWeather, error) {
 	weather := OpenMeteoWeather{}
