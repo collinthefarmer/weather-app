@@ -29,6 +29,8 @@ func getGeolocation(r *http.Request, db *data.Queries) (data.Geolocation, error)
 	case nil:
 		return entry, nil
 	case sql.ErrNoRows:
+		log.Printf("fetching location for %v", ip)
+
 		loc, err := location.ForIP(ip)
 		if err != nil {
 			return entry, err
@@ -46,23 +48,26 @@ func getGeolocation(r *http.Request, db *data.Queries) (data.Geolocation, error)
 	}
 }
 
-func renderTemplate[T any](w http.ResponseWriter, tmpl *template.Template, data *T, status int) error {
-	w.WriteHeader(status)
-	w.Header().Add("Content-Type", "text/html")
-	return tmpl.Execute(w, data)
+func renderTemplate[T any](w http.ResponseWriter, tmpl *template.Template, data *T) error {
+	err := tmpl.Execute(w, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 	const indexTemplateName = "index"
 	indexTemplate := tmpl.Lookup("index")
 	if indexTemplate == nil {
-		panic("")
+		panic("no index template")
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		loc, err := getGeolocation(r, db)
 		if err != nil {
-			log.Printf("%v", err)
+			log.Printf("error getting geolocation: %v", err)
 
 			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Write([]byte("uh oh, I couldn't find your location :("))
@@ -71,6 +76,8 @@ func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 
 		wth, err := weather.ForLatLon(loc.Latitude, loc.Longitude)
 		if err != nil {
+			log.Printf("error getting weather: %v", err)
+
 			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Write([]byte("uh oh, I couldn't find your weather :("))
 			return
@@ -84,7 +91,7 @@ func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 			ImageDataUri string
 		}{Location: loc, Weather: wth, ImageDataUri: bestImage}
 
-		if err := renderTemplate(w, tmpl, &data, http.StatusOK); err != nil {
+		if err := renderTemplate(w, tmpl, &data); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("uh oh, I beefed it"))
 			return
@@ -113,6 +120,9 @@ func readObservationDrawing(r *http.Request) (*data.AddObservationDrawingParams,
 func handleObservationPatch(templates *template.Template, db *data.Queries) http.Handler {
 	const observationTemplateName = "observation"
 	observationTemplate := templates.Lookup(observationTemplateName)
+	if observationTemplate == nil {
+		panic("no observation template")
+	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -129,7 +139,7 @@ func handleObservationPatch(templates *template.Template, db *data.Queries) http
 				return
 			}
 
-			renderTemplate(w, observationTemplate, obs, http.StatusCreated)
+			renderTemplate(w, observationTemplate, obs)
 			return
 		case validation.ErrValidation:
 			http.Error(w, "", http.StatusBadRequest)
@@ -162,7 +172,11 @@ var schema string
 var templateFS embed.FS
 
 func main() {
-	templates, err := template.ParseFS(templateFS, "templates/*.template.html")
+	templates, err := template.ParseFS(
+		templateFS,
+		"templates/*.template.html",
+		"templates/js/*.template.html",
+	)
 	if err != nil {
 		panic(err)
 	}
