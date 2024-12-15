@@ -48,13 +48,19 @@ func getGeolocation(r *http.Request, db *data.Queries) (data.Geolocation, error)
 	}
 }
 
-func renderTemplate[T any](w http.ResponseWriter, tmpl *template.Template, data *T) error {
+func renderTemplate[T any](w http.ResponseWriter, tmpl *template.Template, data T) error {
 	err := tmpl.Execute(w, data)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+type indexTemplateData struct {
+	IP        string
+	Latitude  float64
+	Longitude float64
 }
 
 func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
@@ -84,17 +90,16 @@ func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 		}
 
 		bestImage := "" // as determined by some math? closest + most recent - not sure how to do this
+		_, _ = bestImage, wth
 
-		data := struct {
-			Location     data.Geolocation
-			Weather      weather.Weather
-			ImageDataUri string
-		}{Location: loc, Weather: wth, ImageDataUri: bestImage}
+		data := indexTemplateData{
+			IP:        loc.Ip,
+			Latitude:  loc.Latitude,
+			Longitude: loc.Longitude,
+		}
 
-		if err := renderTemplate(w, tmpl, &data); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("uh oh, I beefed it"))
-			return
+		if err := renderTemplate(w, tmpl, data); err != nil {
+			panic(err)
 		}
 	})
 }
@@ -139,7 +144,7 @@ func handleObservationPatch(templates *template.Template, db *data.Queries) http
 				return
 			}
 
-			renderTemplate(w, observationTemplate, obs)
+			renderTemplate(w, observationTemplate, *obs)
 			return
 		case validation.ErrValidation:
 			http.Error(w, "", http.StatusBadRequest)

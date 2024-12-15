@@ -3,10 +3,21 @@
 <html>
 	<head>
 		{{ template "js_htmx" }}
+		{{ template "comp_observation_canvas" }}
 	</head>
 	<body>
-		hi!
+		<form>
+			<!--Location     data.Geolocation-->
+			<!--Weather      weather.Weather-->
+			<!--ImageDataUri string-->
+			<input id="ip" type="text" value="{{.IP}}">
+			<input id="longitude" type="number" value="{{.Latitude}}">
+			<input id="longitude" type="number" value="{{.Longitude}}">
+		</form>
+
+
+		<observation-canvas></observation-canvas>
 	</body>
 </html>
 {{end}}
-{{template "index"}}
+{{template "index" .}}
