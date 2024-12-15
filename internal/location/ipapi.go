@@ -7,7 +7,7 @@ import (
 	"weather/internal/validation"
 )
 
-type Geolocation struct {
+type IPAPIGeolocation struct {
 	Query       string  `json:"query"`
 	Status      string  `json:"status"`
 	Country     string  `json:"country"`
@@ -21,7 +21,7 @@ type Geolocation struct {
 	Timezone    string  `json:"timezone"`
 }
 
-func (loc Geolocation) Validate() (validation.ValidationProblems, error) {
+func (loc IPAPIGeolocation) Validate() (validation.ValidationProblems, error) {
 	// TODO
 	return nil, nil
 }
@@ -30,8 +30,8 @@ const basePath = "http://ip-api.com/json/"
 const fields = "status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,query"
 const defaultIP = "127.0.0.1"
 
-func ForIP(ip string) (Geolocation, error) {
-	geolocation := Geolocation{}
+func ForIP(ip string) (IPAPIGeolocation, error) {
+	geolocation := IPAPIGeolocation{}
 
 	endpoint := basePath
 	if ip == defaultIP {

@@ -27,7 +27,7 @@ type Current struct {
 	Snowfall           float64 `json:"snowfall"`
 }
 
-type Weather struct {
+type OpenMeteoWeather struct {
 	Latitude             float64      `json:"latitude"`
 	Longitude            float64      `json:"longitude"`
 	GenerationTimeMs     float64      `json:"generation_time_ms"`
@@ -39,7 +39,7 @@ type Weather struct {
 	Current              Current      `json:"current"`
 }
 
-func (w Weather) Validate() (validation.ValidationProblems, error) {
+func (w OpenMeteoWeather) Validate() (validation.ValidationProblems, error) {
 	// TODO
 	return nil, nil
 }
@@ -47,8 +47,8 @@ func (w Weather) Validate() (validation.ValidationProblems, error) {
 const basePath = "https://api.open-meteo.com/v1/forecast"
 const fields = "temperature_2m,relative_humidity_2m,rain,showers,snowfall"
 
-func ForLatLon(lat float64, lon float64) (Weather, error) {
-	weather := Weather{}
+func ForLatLon(lat float64, lon float64) (OpenMeteoWeather, error) {
+	weather := OpenMeteoWeather{}
 
 	endpoint := fmt.Sprintf("%s?current=%s&latitude=%.2f&longitude=%.2f",
 		basePath, fields, lat, lon,
@@ -60,3 +60,21 @@ func ForLatLon(lat float64, lon float64) (Weather, error) {
 
 	return weather, nil
 }
+
+// https://open-meteo.com/en/docs
+//
+// WMO Weather interpretation codes (WW)
+// Code 	Description
+// 0 	Clear sky
+// 1, 2, 3 	Mainly clear, partly cloudy, and overcast
+// 45, 48 	Fog and depositing rime fog
+// 51, 53, 55 	Drizzle: Light, moderate, and dense intensity
+// 56, 57 	Freezing Drizzle: Light and dense intensity
+// 61, 63, 65 	Rain: Slight, moderate and heavy intensity
+// 66, 67 	Freezing Rain: Light and heavy intensity
+// 71, 73, 75 	Snow fall: Slight, moderate, and heavy intensity
+// 77 	Snow grains
+// 80, 81, 82 	Rain showers: Slight, moderate, and violent
+// 85, 86 	Snow showers slight and heavy
+// 95 * 	Thunderstorm: Slight or moderate
+// 96, 99 * 	Thunderstorm with slight and heavy hail

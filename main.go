@@ -1,28 +1,26 @@
 package main
 
 import (
-	"log"
 	"weather/internal/data"
 	"weather/internal/drawing"
 	"weather/internal/location"
+	"weather/internal/observation"
 	"weather/internal/validation"
 	"weather/internal/weather"
 
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func getGeolocation(r *http.Request, db *data.Queries) (data.Geolocation, error) {
-	ctx := r.Context()
-
-	requestAddress := r.RemoteAddr
-	ip := strings.Split(requestAddress, ":")[0]
+func resolveGeolocation(ctx context.Context, ip string, db *data.Queries) (data.Geolocation, error) {
 
 	entry, err := db.GetGeolocation(ctx, ip)
 	switch err {
@@ -40,12 +38,36 @@ func getGeolocation(r *http.Request, db *data.Queries) (data.Geolocation, error)
 			Ip:        ip,
 			Latitude:  loc.Lat,
 			Longitude: loc.Lon,
+			City:      loc.City,
+			Country:   loc.Country,
+			Timezone:  loc.Timezone,
 		})
 
 		return entry, nil
 	default:
 		return entry, err
 	}
+}
+
+func resolveObservation(ctx context.Context, loc data.Geolocation, db *data.Queries) (*data.Observation, error) {
+	// todo: make this work like resolveGeolocation
+	// then refactor, probably
+	wth, err := weather.ForLatLon(loc.Latitude, loc.Longitude)
+	if err != nil {
+		return nil, err
+	}
+
+	obs, err := db.AddObservation(ctx, data.AddObservationParams{
+		Latitude:  loc.Latitude,
+		Longitude: loc.Longitude,
+		Timezone:  loc.Timezone,
+		TempC:     wth.Current.Temperature2m,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &obs, nil
 }
 
 func renderTemplate[T any](w http.ResponseWriter, tmpl *template.Template, data T) error {
@@ -58,9 +80,8 @@ func renderTemplate[T any](w http.ResponseWriter, tmpl *template.Template, data 
 }
 
 type indexTemplateData struct {
-	IP        string
-	Latitude  float64
-	Longitude float64
+	PrevObservation data.Observation
+	NextObservation data.Observation
 }
 
 func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
@@ -71,34 +92,43 @@ func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		loc, err := getGeolocation(r, db)
-		if err != nil {
-			log.Printf("error getting geolocation: %v", err)
+		ctx := r.Context()
 
-			w.WriteHeader(http.StatusServiceUnavailable)
+		requestAddress := r.RemoteAddr
+		ip := strings.Split(requestAddress, ":")[0]
+
+		loc, err := resolveGeolocation(ctx, ip, db)
+		if err != nil {
+			log.Printf("error resolving geolocation: %v", err)
+
+			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("uh oh, I couldn't find your location :("))
 			return
 		}
 
-		wth, err := weather.ForLatLon(loc.Latitude, loc.Longitude)
+		obs, err := resolveObservation(ctx, loc, db)
 		if err != nil {
-			log.Printf("error getting weather: %v", err)
+			log.Printf("error resolving observation: %v", err)
 
-			w.WriteHeader(http.StatusServiceUnavailable)
+			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("uh oh, I couldn't find your weather :("))
 			return
 		}
 
-		bestImage := "" // as determined by some math? closest + most recent - not sure how to do this
-		_, _ = bestImage, wth
+		prev, err := observation.ResolvePriorObservation(*obs, db)
+		if err != nil {
+			log.Printf("error resolving previous observation: %v", err)
 
-		data := indexTemplateData{
-			IP:        loc.Ip,
-			Latitude:  loc.Latitude,
-			Longitude: loc.Longitude,
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("uh oh, I beefed it!"))
+			return
 		}
 
-		if err := renderTemplate(w, tmpl, data); err != nil {
+		if err := renderTemplate(w, tmpl, indexTemplateData{
+			PrevObservation: *prev,
+			NextObservation: *obs,
+		}); err != nil {
+			log.Printf("error rendering index template: %v", err)
 			panic(err)
 		}
 	})
@@ -183,12 +213,12 @@ func main() {
 		"templates/js/*.template.html",
 	)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error parsing templates: %v", err)
 	}
 
 	db, err := createDatabase("./db.sqlite", schema)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error creating database: %v", err)
 	}
 
 	server := http.NewServeMux()

@@ -13,93 +13,109 @@ import (
 
 const addGeolocation = `-- name: AddGeolocation :one
 INSERT INTO
-    geolocations (ip, latitude, longitude)
+    geolocations (ip, latitude, longitude, city, country, timezone)
 VALUES
-    (?, ?, ?)
+    (?, ?, ?, ?, ?, ?)
 RETURNING
-    ip, latitude, longitude
+    ip, latitude, longitude, city, country, timezone
 `
 
 type AddGeolocationParams struct {
 	Ip        string
 	Latitude  float64
 	Longitude float64
+	City      string
+	Country   string
+	Timezone  string
 }
 
 func (q *Queries) AddGeolocation(ctx context.Context, arg AddGeolocationParams) (Geolocation, error) {
-	row := q.db.QueryRowContext(ctx, addGeolocation, arg.Ip, arg.Latitude, arg.Longitude)
+	row := q.db.QueryRowContext(ctx, addGeolocation,
+		arg.Ip,
+		arg.Latitude,
+		arg.Longitude,
+		arg.City,
+		arg.Country,
+		arg.Timezone,
+	)
 	var i Geolocation
-	err := row.Scan(&i.Ip, &i.Latitude, &i.Longitude)
+	err := row.Scan(
+		&i.Ip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.City,
+		&i.Country,
+		&i.Timezone,
+	)
 	return i, err
 }
 
 const addObservation = `-- name: AddObservation :one
 INSERT INTO
     observations (
-        time_utc,
-        time_local,
-        timezone,
         latitude,
         longitude,
-        temperature_2m,
-        relative_humidity_2m,
+        timezone,
+        temp_c,
+        temp_f,
+        relative_humidity,
         rain,
-        showers,
         snowfall,
-        drawing_data_uri,
-        drawing_size_bytes
+        weather_code,
+        time_utc,
+        time_local
     )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING
-    id, time_utc, time_local, timezone, latitude, longitude, temperature_2m, relative_humidity_2m, rain, showers, snowfall, drawing_data_uri, drawing_size_bytes
+    id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, drawing_data_uri, drawing_size_bytes, time_utc, time_local, time_drawing_submit
 `
 
 type AddObservationParams struct {
-	TimeUtc            time.Time
-	TimeLocal          time.Time
-	Timezone           string
-	Latitude           float64
-	Longitude          float64
-	Temperature2m      float64
-	RelativeHumidity2m float64
-	Rain               float64
-	Showers            float64
-	Snowfall           float64
-	DrawingDataUri     sql.NullString
-	DrawingSizeBytes   sql.NullInt64
+	Latitude         float64
+	Longitude        float64
+	Timezone         string
+	TempC            float64
+	TempF            float64
+	RelativeHumidity float64
+	Rain             float64
+	Snowfall         float64
+	WeatherCode      string
+	TimeUtc          time.Time
+	TimeLocal        time.Time
 }
 
 func (q *Queries) AddObservation(ctx context.Context, arg AddObservationParams) (Observation, error) {
 	row := q.db.QueryRowContext(ctx, addObservation,
-		arg.TimeUtc,
-		arg.TimeLocal,
-		arg.Timezone,
 		arg.Latitude,
 		arg.Longitude,
-		arg.Temperature2m,
-		arg.RelativeHumidity2m,
+		arg.Timezone,
+		arg.TempC,
+		arg.TempF,
+		arg.RelativeHumidity,
 		arg.Rain,
-		arg.Showers,
 		arg.Snowfall,
-		arg.DrawingDataUri,
-		arg.DrawingSizeBytes,
+		arg.WeatherCode,
+		arg.TimeUtc,
+		arg.TimeLocal,
 	)
 	var i Observation
 	err := row.Scan(
 		&i.ID,
-		&i.TimeUtc,
-		&i.TimeLocal,
-		&i.Timezone,
 		&i.Latitude,
 		&i.Longitude,
-		&i.Temperature2m,
-		&i.RelativeHumidity2m,
+		&i.Timezone,
+		&i.TempC,
+		&i.TempF,
+		&i.RelativeHumidity,
 		&i.Rain,
-		&i.Showers,
 		&i.Snowfall,
+		&i.WeatherCode,
 		&i.DrawingDataUri,
 		&i.DrawingSizeBytes,
+		&i.TimeUtc,
+		&i.TimeLocal,
+		&i.TimeDrawingSubmit,
 	)
 	return i, err
 }
@@ -109,26 +125,33 @@ UPDATE
     observations
 SET
     drawing_data_uri = ?,
-    drawing_size_bytes = ?
+    drawing_size_bytes = ?,
+    time_drawing_submit = ?
 WHERE
     id = ?
     AND drawing_data_uri IS NULL
 `
 
 type AddObservationDrawingParams struct {
-	DrawingDataUri   sql.NullString
-	DrawingSizeBytes sql.NullInt64
-	ID               int64
+	DrawingDataUri    sql.NullString
+	DrawingSizeBytes  sql.NullInt64
+	TimeDrawingSubmit sql.NullTime
+	ID                int64
 }
 
 func (q *Queries) AddObservationDrawing(ctx context.Context, arg AddObservationDrawingParams) error {
-	_, err := q.db.ExecContext(ctx, addObservationDrawing, arg.DrawingDataUri, arg.DrawingSizeBytes, arg.ID)
+	_, err := q.db.ExecContext(ctx, addObservationDrawing,
+		arg.DrawingDataUri,
+		arg.DrawingSizeBytes,
+		arg.TimeDrawingSubmit,
+		arg.ID,
+	)
 	return err
 }
 
 const getGeolocation = `-- name: GetGeolocation :one
 SELECT
-    ip, latitude, longitude
+    ip, latitude, longitude, city, country, timezone
 FROM
     geolocations
 WHERE
@@ -138,13 +161,20 @@ WHERE
 func (q *Queries) GetGeolocation(ctx context.Context, ip string) (Geolocation, error) {
 	row := q.db.QueryRowContext(ctx, getGeolocation, ip)
 	var i Geolocation
-	err := row.Scan(&i.Ip, &i.Latitude, &i.Longitude)
+	err := row.Scan(
+		&i.Ip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.City,
+		&i.Country,
+		&i.Timezone,
+	)
 	return i, err
 }
 
 const selectRecentObservation = `-- name: SelectRecentObservation :one
 SELECT
-    id, time_utc, time_local, timezone, latitude, longitude, temperature_2m, relative_humidity_2m, rain, showers, snowfall, drawing_data_uri, drawing_size_bytes
+    id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, drawing_data_uri, drawing_size_bytes, time_utc, time_local, time_drawing_submit
 FROM
     observations
 LIMIT
@@ -157,18 +187,20 @@ func (q *Queries) SelectRecentObservation(ctx context.Context) (Observation, err
 	var i Observation
 	err := row.Scan(
 		&i.ID,
-		&i.TimeUtc,
-		&i.TimeLocal,
-		&i.Timezone,
 		&i.Latitude,
 		&i.Longitude,
-		&i.Temperature2m,
-		&i.RelativeHumidity2m,
+		&i.Timezone,
+		&i.TempC,
+		&i.TempF,
+		&i.RelativeHumidity,
 		&i.Rain,
-		&i.Showers,
 		&i.Snowfall,
+		&i.WeatherCode,
 		&i.DrawingDataUri,
 		&i.DrawingSizeBytes,
+		&i.TimeUtc,
+		&i.TimeLocal,
+		&i.TimeDrawingSubmit,
 	)
 	return i, err
 }

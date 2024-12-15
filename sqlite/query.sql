@@ -1,8 +1,8 @@
 -- name: AddGeolocation :one
 INSERT INTO
-    geolocations (ip, latitude, longitude)
+    geolocations (ip, latitude, longitude, city, country, timezone)
 VALUES
-    (?, ?, ?)
+    (?, ?, ?, ?, ?, ?)
 RETURNING
     *;
 
@@ -17,33 +17,32 @@ WHERE
 -- name: AddObservation :one
 INSERT INTO
     observations (
-        time_utc,
-        time_local,
-        timezone,
         latitude,
         longitude,
-        temperature_2m,
-        relative_humidity_2m,
+        timezone,
+        temp_c,
+        temp_f,
+        relative_humidity,
         rain,
-        showers,
         snowfall,
-        drawing_data_uri,
-        drawing_size_bytes
+        weather_code,
+        time_utc,
+        time_local
     )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING
     *;
 
 -- name: AddObservationDrawing :exec
-UPDATE
-    observations
+INSERT INTO
+    observations_drawings (data, size_bytes, time_submitted)
 SET
     drawing_data_uri = ?,
-    drawing_size_bytes = ?
-WHERE
-    id = ?
-    AND drawing_data_uri IS NULL;
+    drawing_size_bytes = ?,
+    time_drawing_submit = ?
+RETURNING
+    *;
 
 -- todo
 -- name: SelectRecentObservation :one
