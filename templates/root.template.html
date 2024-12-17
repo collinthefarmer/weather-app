@@ -1,0 +1,14 @@
+{{ define "root" }}
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="/static/js/vendor/htmx.min.js"></script>
+    <script src="/static/js/components.js"></script>
+  </head>
+  <body>
+    {{ block "body" . }}
+	{{ end }}
+  </body>
+</html>
+{{ end }}
+{{ template "root" . }}

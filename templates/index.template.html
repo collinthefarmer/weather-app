@@ -1,23 +1,7 @@
-{{define "index"}}
-<!DOCTYPE html>
-<html>
-	<head>
-		{{ template "js_htmx" }}
-		{{ template "comp_observation_canvas" }}
-	</head>
-	<body>
-		<form>
-			<!--Location     data.Geolocation-->
-			<!--Weather      weather.Weather-->
-			<!--ImageDataUri string-->
-			<input id="ip" type="text" value="{{.IP}}">
-			<input id="longitude" type="number" value="{{.Latitude}}">
-			<input id="longitude" type="number" value="{{.Longitude}}">
-		</form>
+{{ template "root" . }}
 
-
-		<observation-canvas></observation-canvas>
-	</body>
-</html>
-{{end}}
-{{template "index" .}}
+{{ define "body" }}
+<p>
+  hi!
+</p>
+{{ end }}

@@ -27,5 +27,5 @@ CREATE TABLE IF NOT EXISTS observation_drawings (
     data TEXT NOT NULL,
     size_bytes INT NOT NULL,
     time_submitted DATETIME NOT NULL,
-    FOREGIN KEY(observation_id) REFERENCES observations(id)
+    FOREIGN KEY(observation_id) REFERENCES observations(id)
 );

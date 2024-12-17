@@ -24,7 +24,7 @@ type Current struct {
 	RelativeHumidity2m int     `json:"relative_humidity_2m"`
 	Rain               float64 `json:"rain"`
 	Snowfall           float64 `json:"snowfall"`
-	WeatherCode        string  `json:"weather_code"`
+	WeatherCode        int     `json:"weather_code"`
 }
 
 type OpenMeteoWeather struct {

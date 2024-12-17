@@ -56,6 +56,4 @@ SELECT
     *
 FROM
     observations o
-    INNER JOIN observation_drawings od ON o.id = od.observation_id
-LIMIT
-    1;
+    INNER JOIN observation_drawings od ON o.id = od.observation_id;

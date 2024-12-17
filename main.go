@@ -5,6 +5,7 @@ import (
 	"weather/internal/drawing"
 	"weather/internal/location"
 	"weather/internal/observation"
+	"weather/internal/templates"
 	"weather/internal/validation"
 	"weather/internal/weather"
 
@@ -12,7 +13,6 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -64,7 +64,7 @@ func resolveObservation(ctx context.Context, loc data.Geolocation, db *data.Quer
 		TempF:            wth.Current.Temperature2m,
 		Rain:             wth.Current.Rain,
 		Snowfall:         wth.Current.Snowfall,
-		WeatherCode:      wth.Current.WeatherCode,
+		WeatherCode:      strconv.Itoa(wth.Current.WeatherCode),
 		RelativeHumidity: float64(wth.Current.RelativeHumidity2m),
 		TimeUtc:          time.Now().UTC(),
 	})
@@ -114,12 +114,8 @@ func createObservationDrawing(ctx context.Context, drawing *data.ObservationDraw
 	})
 }
 
-func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
-	const indexTemplateName = "index"
-	indexTemplate := tmpl.Lookup("index")
-	if indexTemplate == nil {
-		panic("no index template")
-	}
+func handleIndexGet(tmpl *templates.TemplateEngine, db *data.Queries) http.Handler {
+	const indexTemplateName = "templates/index.template.html"
 
 	type indexTemplateData struct {
 		PrevObservation data.Observation
@@ -154,22 +150,18 @@ func handleIndexGet(tmpl *template.Template, db *data.Queries) http.Handler {
 			return
 		}
 
-		if err := renderTemplate(w, tmpl, indexTemplateData{
+		if err := tmpl.Render(w, indexTemplateName, indexTemplateData{
 			PrevObservation: *prev,
 			NextObservation: *obs,
 		}); err != nil {
 			log.Printf("error rendering index template: %v", err)
-			panic(err)
+			return
 		}
 	})
 }
 
-func handleObservationDrawingPost(templates *template.Template, db *data.Queries) http.Handler {
-	const observationTemplateName = "observation"
-	observationTemplate := templates.Lookup(observationTemplateName)
-	if observationTemplate == nil {
-		panic("no observation template")
-	}
+func handleObservationDrawingPost(tmpl *templates.TemplateEngine, db *data.Queries) http.Handler {
+	const observationTemplateName = "templates/fragments/observation.template.html"
 
 	type observationTemplateData struct {
 		Observation data.Observation
@@ -201,15 +193,11 @@ func handleObservationDrawingPost(templates *template.Template, db *data.Queries
 			http.Error(w, "", http.StatusInternalServerError)
 		}
 
-		renderTemplate(w, observationTemplate, observationTemplateData{
+		tmpl.Render(w, observationTemplateName, observationTemplateData{
 			Observation: observation,
 			Drawing:     *drawing,
 		})
 	})
-}
-
-func renderTemplate[T any](w http.ResponseWriter, tmpl *template.Template, data T) error {
-	return tmpl.Execute(w, data)
 }
 
 func createDatabase(path string, ddl string) (*data.Queries, error) {
@@ -232,11 +220,14 @@ var schema string
 //go:embed templates/*
 var templateFS embed.FS
 
+//go:embed static/*
+var staticFS embed.FS
+
 func main() {
-	templates, err := template.ParseFS(
+	templates, err := templates.Init(
 		templateFS,
-		"templates/*.template.html",
-		"templates/js/*.template.html",
+		"templates/root.template.html",
+		"templates/common/*.template.html",
 	)
 	if err != nil {
 		log.Fatalf("error parsing templates: %v", err)
@@ -248,6 +239,11 @@ func main() {
 	}
 
 	server := http.NewServeMux()
+
+	server.Handle(
+		"GET /static/",
+		http.FileServerFS(staticFS),
+	)
 
 	server.Handle(
 		"GET /",
