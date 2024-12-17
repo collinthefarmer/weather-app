@@ -1,7 +1,25 @@
 {{ template "root" . }}
 
+{{ define "title" }} index {{ end }}
+<!--return &data.Observation{-->
+<!--	ID:               0,-->
+<!--	Latitude:         0.00,-->
+<!--	Longitude:        0.00,-->
+<!--	Timezone:         "GMT",-->
+<!--	TempC:            0.0,-->
+<!--	TempF:            32.0,-->
+<!--	RelativeHumidity: 0.0,-->
+<!--	Rain:             0.0,-->
+<!--	Snowfall:         0.0,-->
+<!--	WeatherCode:      "2",-->
+<!--	TimeUtc:          time.Now().UTC(),-->
+<!--	TimeLocal:        time.Now().UTC(),-->
+<!--}, nil-->
 {{ define "body" }}
-<p>
-  hi!
-</p>
+<main>
+  <input disabled type="number" value="{{ .Data.NextObservation.Latitude }}">
+  <input disabled type="number" value="{{ .Data.NextObservation.Longitude }}">
+  <!--<input type="number" value="{{ . }}">-->
+  <!--<input type="number" value="{{ . }}">-->
+</main>
 {{ end }}

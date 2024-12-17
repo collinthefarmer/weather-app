@@ -223,9 +223,22 @@ var templateFS embed.FS
 //go:embed static/*
 var staticFS embed.FS
 
+var templateConstants = struct {
+	MinLatitude  float32
+	MaxLatitude  float32
+	MinLongitude float32
+	MaxLongitude float32
+}{
+	MinLatitude:  -90.0,
+	MaxLatitude:  90.0,
+	MinLongitude: -180.0,
+	MaxLongitude: 180.0,
+}
+
 func main() {
 	templates, err := templates.Init(
 		templateFS,
+		templateConstants,
 		"templates/root.template.html",
 		"templates/common/*.template.html",
 	)

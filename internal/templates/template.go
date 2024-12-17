@@ -8,10 +8,11 @@ import (
 )
 
 type TemplateEngine struct {
-	root *template.Template
+	root      *template.Template
+	constants interface{}
 }
 
-func Init(fs embed.FS, rootTemplatePath string, commonTemplatePaths ...string) (*TemplateEngine, error) {
+func Init(fs embed.FS, constants interface{}, rootTemplatePath string, commonTemplatePaths ...string) (*TemplateEngine, error) {
 	root, err := template.ParseFS(fs, rootTemplatePath)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing root template: %w", err)
@@ -19,11 +20,16 @@ func Init(fs embed.FS, rootTemplatePath string, commonTemplatePaths ...string) (
 
 	templateFunctions := template.FuncMap{}
 
-	return &TemplateEngine{root: template.Must(
+	return &TemplateEngine{constants: constants, root: template.Must(
 		root.
 			Funcs(templateFunctions).
 			ParseFS(fs, commonTemplatePaths...),
 	)}, nil
+}
+
+type TemplateEnvironment struct {
+	Const interface{}
+	Data  interface{}
 }
 
 func (te *TemplateEngine) Render(w http.ResponseWriter, path string, data any) error {
@@ -33,5 +39,8 @@ func (te *TemplateEngine) Render(w http.ResponseWriter, path string, data any) e
 		return err
 	}
 
-	return tmpl.Execute(w, data)
+	return tmpl.Execute(w, TemplateEnvironment{
+		Const: te.constants,
+		Data:  data,
+	})
 }

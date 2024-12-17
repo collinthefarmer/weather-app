@@ -2,8 +2,12 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="UTF-8">
+    <meta name="author" content="Collin Farmer">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/vendor/htmx.min.js"></script>
     <script src="/static/js/components.js"></script>
+    <title>{{ block "title" . }}{{end}}</title>
   </head>
   <body>
     {{ block "body" . }}
