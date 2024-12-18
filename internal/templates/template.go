@@ -18,7 +18,9 @@ func Init(fs embed.FS, constants interface{}, rootTemplatePath string, commonTem
 		return nil, fmt.Errorf("error parsing root template: %w", err)
 	}
 
-	templateFunctions := template.FuncMap{}
+	templateFunctions := template.FuncMap{
+		"asdateinputvalue": AsDateInputValue,
+	}
 
 	return &TemplateEngine{constants: constants, root: template.Must(
 		root.

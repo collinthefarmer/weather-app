@@ -1,1 +1,16 @@
-<p>hi</p>
+{{ define "observation" }}
+<div>
+  <input type="number" value="{{ .Data.NextObservation.ID }}">
+  <input type="number" value="{{ .Data.NextObservation.Latitude }}">
+  <input type="number" value="{{ .Data.NextObservation.Longitude }}">
+  <input type="text" value="{{ .Data.NextObservation.Timezone }}">
+  <input type="number" value="{{ .Data.NextObservation.TempC }}">
+  <input type="number" value="{{ .Data.NextObservation.TempF }}">
+  <input type="number" value="{{ .Data.NextObservation.RelativeHumidity }}">
+  <input type="number" value="{{ .Data.NextObservation.Rain }}">
+  <input type="number" value="{{ .Data.NextObservation.Snowfall }}">
+  <input type="text" value="{{ .Data.NextObservation.WeatherCode }}">
+  <input type="datetime-local" value="{{ asdateinputvalue .Data.NextObservation.TimeUtc }}">
+  <input type="datetime-local" value="{{ asdateinputvalue .Data.NextObservation.TimeLocal }}">
+</div>
+{{ end }}

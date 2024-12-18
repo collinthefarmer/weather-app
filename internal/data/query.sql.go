@@ -122,7 +122,7 @@ INSERT INTO
 VALUES
     (?, ?, ?, ?)
 RETURNING
-    observation_id, data, size_bytes, time_submitted, foregin
+    observation_id, data, size_bytes, time_submitted
 `
 
 type AddObservationDrawingParams struct {
@@ -196,12 +196,10 @@ func (q *Queries) GetObservation(ctx context.Context, id int64) (Observation, er
 
 const priorObservation = `-- name: PriorObservation :one
 SELECT
-    id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, time_utc, time_local, observation_id, data, size_bytes, time_submitted, foregin
+    id, latitude, longitude, timezone, temp_c, temp_f, relative_humidity, rain, snowfall, weather_code, time_utc, time_local, observation_id, data, size_bytes, time_submitted
 FROM
     observations o
     INNER JOIN observation_drawings od ON o.id = od.observation_id
-LIMIT
-    1
 `
 
 type PriorObservationRow struct {
@@ -221,7 +219,6 @@ type PriorObservationRow struct {
 	Data             string
 	SizeBytes        int64
 	TimeSubmitted    time.Time
-	Foregin          interface{}
 }
 
 // todo - returns best
@@ -245,7 +242,6 @@ func (q *Queries) PriorObservation(ctx context.Context) (PriorObservationRow, er
 		&i.Data,
 		&i.SizeBytes,
 		&i.TimeSubmitted,
-		&i.Foregin,
 	)
 	return i, err
 }

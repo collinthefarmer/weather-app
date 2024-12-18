@@ -3,10 +3,12 @@ package observation
 import (
 	"weather/internal/data"
 
+	"context"
 	"time"
 )
 
-func ResolvePriorObservation(obs data.Observation, db *data.Queries) (*data.Observation, error) {
+func ResolvePriorObservation(ctx context.Context, obs data.Observation, db *data.Queries) (*data.Observation, error) {
+	_ = ctx
 	return &data.Observation{
 		ID:               0,
 		Latitude:         0.00,

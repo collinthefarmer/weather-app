@@ -43,6 +43,9 @@ func resolveGeolocation(ctx context.Context, ip string, db *data.Queries) (data.
 			Country:   loc.Country,
 			Timezone:  loc.Timezone,
 		})
+		if err != nil {
+			return entry, nil
+		}
 
 		return entry, nil
 	default:
@@ -56,6 +59,11 @@ func resolveObservation(ctx context.Context, loc data.Geolocation, db *data.Quer
 		return nil, err
 	}
 
+	tzloc, err := time.LoadLocation(loc.Timezone)
+	if err != nil {
+		tzloc = time.UTC
+	}
+
 	obs, err := db.AddObservation(ctx, data.AddObservationParams{
 		Latitude:         loc.Latitude,
 		Longitude:        loc.Longitude,
@@ -67,6 +75,7 @@ func resolveObservation(ctx context.Context, loc data.Geolocation, db *data.Quer
 		WeatherCode:      strconv.Itoa(wth.Current.WeatherCode),
 		RelativeHumidity: float64(wth.Current.RelativeHumidity2m),
 		TimeUtc:          time.Now().UTC(),
+		TimeLocal:        time.Now().In(tzloc),
 	})
 
 	if err != nil {
@@ -118,6 +127,7 @@ func handleIndexGet(tmpl *templates.TemplateEngine, db *data.Queries) http.Handl
 	const indexTemplateName = "templates/index.template.html"
 
 	type indexTemplateData struct {
+		Location        data.Geolocation
 		PrevObservation data.Observation
 		NextObservation data.Observation
 	}
@@ -130,7 +140,12 @@ func handleIndexGet(tmpl *templates.TemplateEngine, db *data.Queries) http.Handl
 
 		loc, err := resolveGeolocation(ctx, ip, db)
 		if err != nil {
-			log.Printf("error resolving geolocation: %v", err)
+			switch err {
+			case context.Canceled:
+			default:
+				log.Printf("error resolving geolocation: %v", err)
+				break
+			}
 
 			http.Error(w, "uh oh, I couldn't find your location :(", http.StatusInternalServerError)
 			return
@@ -138,19 +153,32 @@ func handleIndexGet(tmpl *templates.TemplateEngine, db *data.Queries) http.Handl
 
 		obs, err := resolveObservation(ctx, loc, db)
 		if err != nil {
-			log.Printf("error resolving observation: %v", err)
+			switch err {
+			case context.Canceled:
+			default:
+				log.Printf("error resolving observation: %v", err)
+				break
+			}
+
 			http.Error(w, "uh oh, I couldn't find your weather :(", http.StatusInternalServerError)
 			return
 		}
 
-		prev, err := observation.ResolvePriorObservation(*obs, db)
+		prev, err := observation.ResolvePriorObservation(ctx, *obs, db)
 		if err != nil {
-			log.Printf("error resolving previous observation: %v", err)
+			switch err {
+			case context.Canceled:
+			default:
+				log.Printf("error resolving prior observation: %v", err)
+				break
+			}
+
 			http.Error(w, "uh oh, I beefed it :(", http.StatusInternalServerError)
 			return
 		}
 
 		if err := tmpl.Render(w, indexTemplateName, indexTemplateData{
+			Location:        loc,
 			PrevObservation: *prev,
 			NextObservation: *obs,
 		}); err != nil {
@@ -241,6 +269,7 @@ func main() {
 		templateConstants,
 		"templates/root.template.html",
 		"templates/common/*.template.html",
+		"templates/fragments/*.template.html",
 	)
 	if err != nil {
 		log.Fatalf("error parsing templates: %v", err)

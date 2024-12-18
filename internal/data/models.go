@@ -37,5 +37,4 @@ type ObservationDrawing struct {
 	Data          string
 	SizeBytes     int64
 	TimeSubmitted time.Time
-	Foregin       interface{}
 }
