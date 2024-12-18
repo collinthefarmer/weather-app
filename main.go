@@ -69,7 +69,7 @@ func resolveObservation(ctx context.Context, loc data.Geolocation, db *data.Quer
 		Longitude:        loc.Longitude,
 		Timezone:         loc.Timezone,
 		TempC:            wth.Current.Temperature2m,
-		TempF:            wth.Current.Temperature2m,
+		TempF:            weather.CToF(wth.Current.Temperature2m),
 		Rain:             wth.Current.Rain,
 		Snowfall:         wth.Current.Snowfall,
 		WeatherCode:      strconv.Itoa(wth.Current.WeatherCode),

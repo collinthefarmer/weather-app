@@ -1,0 +1,42 @@
+.observation {
+    font-family: "monospace";
+
+    display: grid;
+    grid-template-rows: 1em 1fr 1fr 2em;
+    grid-template-columns: 1fr;
+}
+
+.observation-section {
+    display: flex;
+    flex-flow: column;
+}
+
+.observation-subsection {
+    display: flex;
+    flex-flow: column;
+}
+
+.observation-value {
+    font-size: 0.8rem;
+}
+
+.observation-value input {
+    all: unset;
+
+    font-size: 1rem;
+}
+
+/* --- https://www.w3schools.com/howto/howto_css_hide_arrow_number.asp */
+/* Chrome, Safari, Edge, Opera */
+.observation-value input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Firefox */
+.observation-value input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+/* --- */
