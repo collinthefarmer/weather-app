@@ -2,28 +2,48 @@
     font-family: "monospace";
 
     display: grid;
-    grid-template-rows: 1em 1fr 1fr 2em;
-    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-columns: auto 1fr auto;
 }
 
 .observation-section {
     display: flex;
     flex-flow: column;
+    gap: 1rem;
+
+    padding: 0.2rem;
 }
 
 .observation-subsection {
     display: flex;
     flex-flow: column;
+    gap: 0.5rem;
+
+    padding: 0.2rem 0;
+}
+
+.observation-section h5 {
+    margin: 0;
+}
+
+.observation-subsection h6 {
+    margin: 0;
 }
 
 .observation-value {
-    font-size: 0.8rem;
+    display: flex;
+    flex-flow: column;
+
+    font-size: 0.5rem;
 }
 
 .observation-value input {
     all: unset;
 
+    display: block;
     font-size: 1rem;
+
+    margin: 0.1rem;
 }
 
 /* --- https://www.w3schools.com/howto/howto_css_hide_arrow_number.asp */
@@ -40,3 +60,56 @@ input::-webkit-inner-spin-button {
     appearance: textfield;
 }
 /* --- */
+
+.observation-section.id {
+    grid-row: 1;
+    grid-column: span 3;
+}
+
+.observation-section.geolocation {
+    grid-row: 2;
+    grid-column: 1;
+}
+
+.observation-section.weather {
+    grid-row: 2;
+    grid-column: 3;
+
+    align-items: flex-end;
+}
+
+.observation-section.weather .observation-value {
+    align-items: flex-end;
+}
+
+.observation-section.weather {
+    text-align: right;
+}
+
+.observation-section.time {
+    grid-row: 3;
+    grid-column: span 3;
+
+    gap: 0;
+}
+
+.observation-section.time div {
+    display: flex;
+    flex-flow: row;
+    justify-content: space-between;
+}
+
+.time .observation-value {
+    display: flex;
+    flex-flow: column;
+
+    align-items: flex-end;
+}
+
+observation-canvas {
+    grid-row: 2;
+    grid-column: 2;
+
+    width: 500px;
+    aspect-ratio: 1;
+}

@@ -2,66 +2,78 @@
 <div
   class="observation"
 >
-  <section class="observation-topbar">
-    <label class="observation-value">
+  <section class="observation-section id">
+    <label class="observation-value observation-id">
       ID
       <input type="number" value="{{ .ID }}">
     </label>
   </section>
+  <observation-canvas id="observation-{{.ID}}"></observation-canvas>
+  <observation-canvas-pallete for="observation-{{.ID}}"></observation-canvas-pallete>
   <section class="observation-section geolocation">
     <h5>Geolocation</h5>
-    <label class="observation-value">
-      Latitude
-      <input type="number" value="{{ .Latitude }}">
-    </label>
-    <label class="observation-value">
-      Longitude
-      <input type="number" value="{{ .Longitude }}">
-    </label>
-  </section>
-  <section class="observation-section time">
-    <h5>Time</h5>
-    <label class="observation-value">
-      Time (UTC)
-      <input type="datetime-local" value="{{ asdateinputvalue .TimeUtc }}">
-    </label>
-    <label class="observation-value">
-      Time (Local :: {{.Timezone}})
-      <input type="datetime-local" value="{{ asdateinputvalue .TimeLocal }}">
-    </label>
+    <div>
+      <label class="observation-value observation-latitude">
+        Latitude
+        <input type="number" value="{{ .Latitude }}">
+      </label>
+      <label class="observation-value observation-longitude">
+        Longitude
+        <input type="number" value="{{ .Longitude }}">
+      </label>
+    </div>
   </section>
   <section class="observation-section weather">
     <h5>Weather</h5>
-    <label class="observation-value">
-      Weather Code
-      <input type="text" value="{{ .WeatherCode }}">
-    </label>
-    <section class="observation-subsection temperature">
-      <h6>Temperature</h6>
-      <label class="observation-value">
-        °C
-        <input type="number" value="{{ .TempC }}">
+    <div>
+      <label class="observation-value observation-weather-code">
+        Weather Code
+        <input type="text" value="{{ .WeatherCode }}">
       </label>
-      <label class="observation-value">
-        °F
-        <input type="number" value="{{ .TempF }}">
+      <section class="observation-subsection temperature">
+        <h6>Temperature</h6>
+        <div>
+          <label class="observation-value observation-temp-c">
+            °C
+            <input type="number" value="{{ .TempC }}">
+          </label>
+          <label class="observation-value observation-temp-f">
+            °F
+            <input type="number" value="{{ .TempF }}">
+          </label>
+        </div>
+      </section>
+      <section class="observation-subsection precipitation">
+        <h6>Precipitation</h6>
+        <div>
+          <label class="observation-value observation-humidity">
+            Relative Humidity
+            <input type="number" value="{{ .RelativeHumidity }}">
+          </label>
+          <label class="observation-value observation-rain">
+            Rain
+            <input type="number" value="{{ .Rain }}">
+          </label>
+          <label class="observation-value observation-snowfall">
+            Snowfall
+            <input type="number" value="{{ .Snowfall }}">
+          </label>
+        </div>
+      </section>
+    </div>
+  </section>
+  <section class="observation-section time">
+    <h5>Time</h5>
+    <div>
+      <label class="observation-value observation-time-utc">
+        Time (UTC)
+        <input type="datetime-local" value="{{ asdateinputvalue .TimeUtc }}">
       </label>
-    </section>
-    <section class="observation-subsection preciptation">
-      <h6>Precipitation</h6>
-      <label class="observation-value">
-        Relative Humidity
-        <input type="number" value="{{ .RelativeHumidity }}">
+      <label class="observation-value observation-time-local">
+        Time (Local - {{.Timezone}})
+        <input type="datetime-local" value="{{ asdateinputvalue .TimeLocal }}">
       </label>
-      <label class="observation-value">
-        Rain
-        <input type="number" value="{{ .Rain }}">
-      </label>
-      <label class="observation-value">
-        Snowfall
-        <input type="number" value="{{ .Snowfall }}">
-      </label>
-    </section>
+    </div>
   </section>
 </div>
 {{ end }}
