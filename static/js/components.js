@@ -8,37 +8,55 @@ function initObservationCanvas() {
     }
 
     class ObservationCanvas extends HTMLElement {
+        static observedAttributes = ["width", "height"];
+
         constructor() {
             super();
+            this.attachShadow({ mode: "open" });
+
+            this.width = 0;
+            this.height = 0;
+
+            this.canvas = document.createElement("canvas");
+            this.canvas.id = "canvas";
+
+            this.brush = new ObservationCanvasBrush(this.canvas, 10);
         }
 
         connectedCallback() {
-            this.style = "position: relative";
-
-            const shadow = this.attachShadow({ mode: "open" });
-            const canvas = document.createElement("canvas");
-            canvas.style = "position: absolute; inset: 0 0 0 0;";
-            canvas.width = 500;
-            canvas.height = 500;
-            shadow.appendChild(canvas);
-
-            this.canvas = canvas;
-            this.cursor = new ObservationCanvasBrush(canvas, 10);
-
-            canvas.addEventListener("mousedown", () => {
-                this.cursor.start();
+            this.canvas.addEventListener("mousedown", () => {
+                this.brush.start();
             });
 
-            canvas.addEventListener("mousemove", (ev) => {
-                this.cursor.paint(
+            this.canvas.addEventListener("mousemove", (ev) => {
+                this.brush.paint(
                     ev.clientX - this.offsetLeft,
                     ev.clientY - this.offsetTop,
                 );
             });
 
-            canvas.addEventListener("mouseup", () => {
-                this.cursor.stop();
+            this.canvas.addEventListener("mouseup", () => {
+                this.brush.stop();
             });
+
+            this.canvas.addEventListener("mouseleave", () => {
+                this.brush.stop();
+            });
+
+            this.shadowRoot.appendChild(this.canvas);
+        }
+
+        attributeChangedCallback(attr, _oldval, newval) {
+            switch (attr) {
+                case "height":
+                    this.height = parseInt(newval.replace(/[^\d]/g, ""), 10);
+                    this.canvas.height = this.height;
+                    break;
+                case "width":
+                    this.width = parseInt(newval.replace(/[^\d]/g, ""), 10);
+                    this.canvas.width = this.width;
+                    break;
+            }
         }
     }
 
@@ -46,10 +64,6 @@ function initObservationCanvas() {
         constructor(canvas, size, defaultColor = "#000000") {
             this.canvas = canvas;
             this.context = canvas.getContext("2d");
-
-            const paintBufferSize = 255;
-            this.paintBuffer = new Uint16Array(paintBufferSize);
-            this.paintBufferPos = 0;
 
             this.painting = false;
 
@@ -82,39 +96,129 @@ function initObservationCanvas() {
         stop() {
             this.painting = false;
         }
-
-        applyPaintBuffer() {
-            this.context.ellipse(x, y, this.size, this.size, 0, 0, 2 * Math.PI);
-            this.context.fill();
-        }
     }
 
     class ObservationCanvasPallete extends HTMLElement {
-        static observedAttributes = ["for"];
+        static observedAttributes = ["for", "colorset", "brushset"];
+
+        canvas;
 
         constructor() {
             super();
+            this.attachShadow({ mode: "open" });
         }
 
-        attributeChangedCallback(attr, oldval, newval) {
+        connectedCallback() {
+            const sheet = new CSSStyleSheet();
+
+            sheet.insertRule(
+                ":host { display: flex; flex-flow: column; align-items: stretch; gap: .5rem; }",
+            );
+            sheet.insertRule(
+                "fieldset { display: flex; flex-flow: row; justify-content: stretch; align-items: stretch; padding: 0; }",
+            );
+            sheet.insertRule(
+                "fieldset input { padding: 0; margin: 0; appearance: none; aspect-ratio: 1; flex: 1; position: relative; }",
+            );
+            sheet.insertRule(
+                "fieldset input:checked { outline: solid; z-index: 2; }",
+            );
+
+            sheet.insertRule(
+                "#brushset input::after { content: attr(value); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }",
+            );
+
+            this.shadowRoot.adoptedStyleSheets = [sheet];
+        }
+
+        attributeChangedCallback(attr, _oldval, newval) {
             switch (attr) {
                 case "for":
-                    if (oldval) {
-                        this.disconnectCanvas(oldval);
-                    }
-                    this.connectCanvas(newval);
+                    this.canvas = document.querySelector("#" + newval);
+                    break;
+                case "colorset":
+                    this.applyColorset(newval ?? "");
+                    break;
+                case "brushset":
+                    this.applyBrushset(newval ?? "");
                     break;
             }
         }
 
-        disconnectCanvas(id) {
-            const canvas = document.querySelector("#" + id);
-            console.log(canvas);
+        canvasBrushChanger(property, value) {
+            return () => {
+                if (
+                    this.canvas &&
+                    this.canvas.nodeName === "OBSERVATION-CANVAS"
+                ) {
+                    this.canvas.brush[property] = value;
+                } else {
+                    console.error("pallete is not for a valid canvas");
+                }
+            };
         }
 
-        connectCanvas(id) {
-            const canvas = document.querySelector("#" + id);
-            console.log(canvas);
+        applyColorset(colorsetString) {
+            const colorset = colorsetString.split(/, ?/);
+
+            let fieldset = this.shadowRoot.querySelector("#colorset");
+            if (!fieldset) {
+                fieldset = document.createElement("fieldset");
+                fieldset.id = "colorset";
+
+                this.shadowRoot.appendChild(fieldset);
+            }
+
+            for (let i = 0; i < colorset.length; i++) {
+                const colorInput = document.createElement("input");
+                colorInput.type = "radio";
+                colorInput.name = "paint-color";
+                colorInput.value = colorset[i];
+                colorInput.style.setProperty("background-color", colorset[i]);
+
+                const clickFunc = this.canvasBrushChanger("color", colorset[i]);
+
+                colorInput.addEventListener("click", clickFunc);
+                if (i === 0) {
+                    clickFunc();
+                    colorInput.checked = true;
+                }
+
+                fieldset.appendChild(colorInput);
+            }
+        }
+
+        applyBrushset(brushsetString) {
+            const brushset = brushsetString.split(/, ?/);
+
+            let fieldset = this.shadowRoot.querySelector("#brushset");
+            if (!fieldset) {
+                fieldset = document.createElement("fieldset");
+                fieldset.id = "brushset";
+
+                this.shadowRoot.appendChild(fieldset);
+            }
+
+            for (let i = 0; i < brushset.length; i++) {
+                const brushInput = document.createElement("input");
+                brushInput.type = "radio";
+                brushInput.name = "brush-size";
+                brushInput.value = brushset[i];
+
+                const clickFunc = this.canvasBrushChanger(
+                    "size",
+                    parseInt(brushset[i]),
+                );
+                brushInput.addEventListener("click", clickFunc);
+                if (i === 0) {
+                    clickFunc();
+                    brushInput.checked = true;
+                }
+
+                fieldset.appendChild(brushInput);
+            }
+
+            this.shadowRoot.appendChild(fieldset);
         }
     }
 

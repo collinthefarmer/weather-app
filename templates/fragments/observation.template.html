@@ -8,8 +8,17 @@
       <input type="number" value="{{ .ID }}">
     </label>
   </section>
-  <observation-canvas id="observation-{{.ID}}"></observation-canvas>
-  <observation-canvas-pallete for="observation-{{.ID}}"></observation-canvas-pallete>
+  <observation-canvas
+    id="observation-{{.ID}}"
+    width="500px"
+    height="500px"
+  >
+  </observation-canvas>
+  <observation-canvas-pallete
+    for="observation-{{.ID}}"
+    colorset="#ff0000,#00ff00,#0000ff"
+    brushset="1,10,100"
+  ></observation-canvas-pallete>
   <section class="observation-section geolocation">
     <h5>Geolocation</h5>
     <div>
