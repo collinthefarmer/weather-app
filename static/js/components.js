@@ -10,6 +10,8 @@ function initObservationCanvas() {
     class ObservationCanvas extends HTMLElement {
         static observedAttributes = ["width", "height"];
 
+        pallete;
+
         constructor() {
             super();
             this.attachShadow({ mode: "open" });
@@ -20,7 +22,9 @@ function initObservationCanvas() {
             this.canvas = document.createElement("canvas");
             this.canvas.id = "canvas";
 
-            this.brush = new ObservationCanvasBrush(this.canvas, 10);
+            this.brush = new ObservationCanvasBrush(this, 10);
+
+            this.dataBuffer = new Uint8Array();
         }
 
         connectedCallback() {
@@ -29,18 +33,26 @@ function initObservationCanvas() {
             });
 
             this.canvas.addEventListener("mousemove", (ev) => {
-                this.brush.paint(
-                    ev.clientX - this.offsetLeft,
-                    ev.clientY - this.offsetTop,
-                );
+                if (this.brush.painting) {
+                    const x = ev.clientX - this.offsetLeft;
+                    const y = ev.clientY - this.offsetTop;
+                    this.brush.paint(x, y);
+                    this.#addData(x, y, this.pallete.color, this.pallete.size);
+                }
             });
 
             this.canvas.addEventListener("mouseup", () => {
-                this.brush.stop();
+                if (this.brush.painting) {
+                    this.brush.stop();
+                    this.#serializeData();
+                }
             });
 
             this.canvas.addEventListener("mouseleave", () => {
-                this.brush.stop();
+                if (this.brush.painting) {
+                    this.brush.stop();
+                    this.#serializeData();
+                }
             });
 
             this.shadowRoot.appendChild(this.canvas);
@@ -51,29 +63,41 @@ function initObservationCanvas() {
                 case "height":
                     this.height = parseInt(newval.replace(/[^\d]/g, ""), 10);
                     this.canvas.height = this.height;
+                    this.#resetData();
                     break;
                 case "width":
                     this.width = parseInt(newval.replace(/[^\d]/g, ""), 10);
                     this.canvas.width = this.width;
+                    this.#resetData();
                     break;
             }
         }
+
+        #resetData() {
+            this.dataBuffer = new Uint8Array(this.height * this.width);
+        }
+
+        #addData(x, y, iColor, iSize) {
+            this.dataBuffer.set([iColor % 16, iSize % 16], x + y * this.width);
+        }
+
+        #serializeData() {}
     }
 
     class ObservationCanvasBrush {
-        constructor(canvas, size, defaultColor = "#000000") {
+        constructor(canvas) {
             this.canvas = canvas;
-            this.context = canvas.getContext("2d");
+            this.context = canvas.canvas.getContext("2d");
 
             this.painting = false;
-
-            this.size = size;
-            this.color = defaultColor;
         }
 
         start() {
             this.painting = true;
             this.context.beginPath();
+
+            this.context.fillStyle =
+                this.canvas.pallete.colors[this.canvas.pallete.color];
         }
 
         paint(x, y) {
@@ -81,13 +105,12 @@ function initObservationCanvas() {
                 this.context.ellipse(
                     x,
                     y,
-                    this.size,
-                    this.size,
+                    this.canvas.pallete.sizes[this.canvas.pallete.size],
+                    this.canvas.pallete.sizes[this.canvas.pallete.size],
                     0,
                     0,
                     2 * Math.PI,
                 );
-                this.context.fillStyle = this.color;
                 this.context.fill();
             }
             this.context.moveTo(x, y);
@@ -102,6 +125,12 @@ function initObservationCanvas() {
         static observedAttributes = ["for", "colorset", "brushset"];
 
         canvas;
+
+        colors;
+        color = 0;
+
+        sizes;
+        size = 0;
 
         constructor() {
             super();
@@ -135,6 +164,7 @@ function initObservationCanvas() {
             switch (attr) {
                 case "for":
                     this.canvas = document.querySelector("#" + newval);
+                    this.canvas.pallete = this;
                     break;
                 case "colorset":
                     this.applyColorset(newval ?? "");
@@ -145,21 +175,8 @@ function initObservationCanvas() {
             }
         }
 
-        canvasBrushChanger(property, value) {
-            return () => {
-                if (
-                    this.canvas &&
-                    this.canvas.nodeName === "OBSERVATION-CANVAS"
-                ) {
-                    this.canvas.brush[property] = value;
-                } else {
-                    console.error("pallete is not for a valid canvas");
-                }
-            };
-        }
-
         applyColorset(colorsetString) {
-            const colorset = colorsetString.split(/, ?/);
+            this.colors = colorsetString.split(/, ?/);
 
             let fieldset = this.shadowRoot.querySelector("#colorset");
             if (!fieldset) {
@@ -167,20 +184,24 @@ function initObservationCanvas() {
                 fieldset.id = "colorset";
 
                 this.shadowRoot.appendChild(fieldset);
+            } else {
+                fieldset.innerHTML = "";
             }
 
-            for (let i = 0; i < colorset.length; i++) {
+            for (let i = 0; i < this.colors.length; i++) {
                 const colorInput = document.createElement("input");
                 colorInput.type = "radio";
                 colorInput.name = "paint-color";
-                colorInput.value = colorset[i];
-                colorInput.style.setProperty("background-color", colorset[i]);
+                colorInput.value = this.colors[i];
+                colorInput.style.setProperty(
+                    "background-color",
+                    this.colors[i],
+                );
 
-                const clickFunc = this.canvasBrushChanger("color", colorset[i]);
-
-                colorInput.addEventListener("click", clickFunc);
+                const changeBrushColor = () => (this.color = i);
+                colorInput.addEventListener("click", changeBrushColor);
                 if (i === 0) {
-                    clickFunc();
+                    changeBrushColor();
                     colorInput.checked = true;
                 }
 
@@ -189,7 +210,7 @@ function initObservationCanvas() {
         }
 
         applyBrushset(brushsetString) {
-            const brushset = brushsetString.split(/, ?/);
+            this.sizes = brushsetString.split(/, ?/);
 
             let fieldset = this.shadowRoot.querySelector("#brushset");
             if (!fieldset) {
@@ -197,21 +218,20 @@ function initObservationCanvas() {
                 fieldset.id = "brushset";
 
                 this.shadowRoot.appendChild(fieldset);
+            } else {
+                fieldset.innerHTML = "";
             }
 
-            for (let i = 0; i < brushset.length; i++) {
+            for (let i = 0; i < this.sizes.length; i++) {
                 const brushInput = document.createElement("input");
                 brushInput.type = "radio";
                 brushInput.name = "brush-size";
-                brushInput.value = brushset[i];
+                brushInput.value = this.sizes[i];
 
-                const clickFunc = this.canvasBrushChanger(
-                    "size",
-                    parseInt(brushset[i]),
-                );
-                brushInput.addEventListener("click", clickFunc);
+                const changeBrushSize = () => (this.size = i);
+                brushInput.addEventListener("click", changeBrushSize);
                 if (i === 0) {
-                    clickFunc();
+                    changeBrushSize();
                     brushInput.checked = true;
                 }
 
